@@ -69,7 +69,7 @@
     .t-n{background:#030500;color:#a9bd1b} /* ν (8192) */
 
     .controls{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
-    .btn{background:var(--accent-dark);color:var(--score-bg);padding:12px 30px;border-radius:6px;border:3px solid rgba(0,0,0,0.06);font-weight:400;font-size:16px;cursor:pointer;white-space:nowrap}
+    .btn{background:var(--accent-dark);color:var(--score-bg);padding:12px 30px;border-radius:6px;border:3px solid rgba(0,0,0,0.06);font-weight:400;font-size:16px;cursor:pointer;white-space:nowrap;border:none}
     .hint{color:rgba(17,73,34,0.75);font-size:13px}
 
     footer{margin-top:8px;color:rgba(17,73,34,0.6);font-size:12px;text-align:center}
@@ -80,10 +80,10 @@
     .player-form-content h2{margin:0 0 20px 0;color:var(--accent-dark);text-align:center;font-size:24px}
     .form-group{margin-bottom:15px}
     .form-group label{display:block;margin-bottom:5px;color:var(--accent-dark);font-weight:500}
-    .form-group input{width:100%;padding:10px;border:2px solid rgba(17,73,34,0.2);border-radius:6px;font-size:16px;color:var(--accent-dark)}
+    .form-group input{width:100%;padding:10px;border:2px solid rgba(17,73,34,0.2);border-radius:6px;font-size:16px;color:var(--accent-dark);-webkit-user-select:text;-moz-user-select:text;-ms-user-select:text;user-select:text}
     .form-group input:focus{outline:none;border-color:var(--accent-dark)}
     .form-buttons{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
-    .btn-secondary{background:rgba(17,73,34,0.1);color:var(--accent-dark);padding:12px 20px;border-radius:6px;border:2px solid rgba(17,73,34,0.2);font-weight:400;cursor:pointer;flex:1;min-width:120px;text-align:center}
+    .btn-secondary{background:rgba(17,73,34,0.1);color:var(--accent-dark);padding:12px 20px;border-radius:6px;border:2px solid rgba(17,73,34,0.2);font-weight:400;cursor:pointer;flex:1;min-width:120px;text-align:center;border:none}
     .btn-secondary:hover{background:rgba(17,73,34,0.2)}
 
     /* overlay game over */
@@ -405,9 +405,16 @@ function showPlayerForm() {
   playerNameEl.value = '';
   playerYearEl.value = '';
   
-  // Don't auto-focus to avoid keyboard issues on mobile
-  // Let user tap when ready
-  checkFormCompletion(); // Initialize button state
+  // Initialize button state - start with disabled
+  startGameBtn.style.opacity = '0.7';
+  startGameBtn.style.background = 'rgba(17,73,34,0.7)';
+  startGameBtn.style.pointerEvents = 'none';
+  
+  // Enable input fields for mobile
+  playerNameEl.removeAttribute('disabled');
+  playerYearEl.removeAttribute('disabled');
+  playerNameEl.style.pointerEvents = 'auto';
+  playerYearEl.style.pointerEvents = 'auto';
 }
 
 function hidePlayerForm() {
@@ -509,6 +516,10 @@ boardEl.addEventListener('touchend', e => {
 
 // Prevent default touch behaviors on the entire game area
 document.addEventListener('touchstart', e => {
+  // Allow touch events on form inputs and buttons
+  if (e.target.closest('.form-group input') || e.target.closest('.btn') || e.target.closest('.btn-secondary')) {
+    return; // Don't prevent default for form elements
+  }
   if (e.target.closest('.board-wrap') || e.target.closest('.player-form-overlay')) {
     e.preventDefault();
   }
@@ -534,12 +545,21 @@ cancelFormBtn.addEventListener('click', hidePlayerForm);
 playerNameEl.addEventListener('input', checkFormCompletion);
 playerYearEl.addEventListener('input', checkFormCompletion);
 
-// Make the form more touch-friendly - remove Enter key dependencies
-playerNameEl.addEventListener('blur', () => {
-  // When user finishes with name field, enable year field
-  if (playerNameEl.value.trim()) {
-    playerYearEl.removeAttribute('disabled');
-  }
+// Make sure form inputs work on mobile
+playerNameEl.addEventListener('touchstart', (e) => {
+  e.stopPropagation(); // Prevent event bubbling
+});
+
+playerYearEl.addEventListener('touchstart', (e) => {
+  e.stopPropagation(); // Prevent event bubbling
+});
+
+startGameBtn.addEventListener('touchstart', (e) => {
+  e.stopPropagation(); // Prevent event bubbling
+});
+
+cancelFormBtn.addEventListener('touchstart', (e) => {
+  e.stopPropagation(); // Prevent event bubbling
 });
 
 // Auto-enable start button when both fields have content
@@ -550,11 +570,13 @@ function checkFormCompletion() {
   if (name && year) {
     startGameBtn.style.opacity = '1';
     startGameBtn.style.background = 'var(--accent-dark)';
-    startGameBtn.disabled = false;
+    startGameBtn.style.pointerEvents = 'auto';
+    startGameBtn.removeAttribute('disabled');
   } else {
     startGameBtn.style.opacity = '0.7';
     startGameBtn.style.background = 'rgba(17,73,34,0.7)';
-    startGameBtn.disabled = true;
+    startGameBtn.style.pointerEvents = 'none';
+    startGameBtn.setAttribute('disabled', 'true');
   }
 }
 
