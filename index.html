@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0" />
   <title>2048 — EXECPT ITS GREEK LETTERS INSTEAD</title>
   <style>
     /* Exact requested palette + adjustments for screenshot look */
@@ -18,7 +18,15 @@
     }
 
     *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:var(--bg);font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;font-weight:300;color:var(--accent-dark)}
+    html,body{height:100%;margin:0;background:var(--bg);font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;font-weight:300;color:var(--accent-dark);
+      /* Prevent text selection and touch callouts on mobile */
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
 
     .wrap{max-width:760px;margin:28px auto;padding:0 18px}
     .header{display:flex;justify-content:space-between;align-items:center}
@@ -31,7 +39,11 @@
     .score-box .value{font-size:22px;font-weight:700;color:var(--accent-dark)}
 
     /* board area */
-    .board-wrap{margin:18px auto 0 auto;background:transparent;padding:var(--board-padding);border-radius:var(--board-radius);border:3px solid rgba(0,0,0,0.08);box-shadow:0 6px 0 rgba(0,0,0,0.03) inset;display:flex;justify-content:center;align-items:center}
+    .board-wrap{margin:18px auto 0 auto;background:transparent;padding:var(--board-padding);border-radius:var(--board-radius);border:3px solid rgba(0,0,0,0.08);box-shadow:0 6px 0 rgba(0,0,0,0.03) inset;display:flex;justify-content:center;align-items:center;
+      /* Make touch area more responsive */
+      touch-action: none;
+      -webkit-touch-callout: none;
+    }
     .slot-grid{width: calc((var(--tile-size) * 4) + (var(--gap) * 3)); height: calc((var(--tile-size) * 4) + (var(--gap) * 3)); position:relative}
     .slot{position:absolute;width:var(--tile-size);height:var(--tile-size);background:rgba(255,255,255,0.06);border-radius:8px}
 
@@ -84,7 +96,33 @@
     .win-overlay h2{font-size:32px;margin:0;color:var(--score-bg)}
     .win-overlay p{color:var(--score-bg);margin:8px 0;text-align:center}
 
-    @media (max-width:840px){ .title{font-size:64px} .wrap{padding:12px} }
+    @media (max-width:840px){ 
+      .title{font-size:64px} 
+      .wrap{padding:12px; max-width:100%} 
+      .header{flex-direction:column; align-items:center; gap:15px}
+      .scores{margin-top:10px}
+      .score-box{padding:8px 12px}
+      .score-box .value{font-size:18px}
+      
+      /* Mobile board adjustments */
+      :root{
+        --tile-size: 70px;
+        --gap: 12px;
+        --board-padding: 12px;
+      }
+      
+      .board-wrap{margin:15px auto 0 auto}
+      .tile .letter{font-size:36px}
+      
+      /* Mobile controls */
+      .controls{flex-direction:column; align-items:center; gap:10px; margin-top:10px}
+      .btn{font-size:14px; padding:10px 20px}
+      .hint{text-align:center; margin-left:0; font-size:12px; max-width:300px}
+      
+      /* Mobile form */
+      .player-form-content{padding:20px; max-width:90%}
+      .form-group input{font-size:16px; padding:12px}
+    }
   </style>
 </head>
 <body>
@@ -107,7 +145,7 @@
     <!-- Player Registration Form -->
     <div id="player-form" class="player-form-overlay" style="display:none;">
       <div class="player-form-content">
-        <h2>Fill Your Identity First!</h2>
+        <h2>Player Registration</h2>
         <div class="form-group">
           <label>Full Name:</label>
           <input type="text" id="player-name" required />
@@ -125,7 +163,7 @@
 
     <div class="controls">
       <button id="newBtn" class="btn">START NEW GAME</button>
-      <div class="hint" style="text-align:right; margin-left: 60px;">Use the arrow keys to swipe. You are free to play, but your score will only be recorded in the first 3 attempts. Enjoy playing!</div>
+      <div class="hint" style="text-align:right; margin-left: 60px;">Use arrow keys or swipe to move tiles. You are free to play, but your score will only be recorded in the first 3 attempts. Enjoy playing!</div>
     </div>
 
     <footer>Presented by Mistikus, only for you.</footer>
@@ -296,7 +334,71 @@ function validateAndStartGame() {
 
 // input
 document.addEventListener('keydown', e=>{ if(!grid) return; if(e.key==='ArrowLeft'){ e.preventDefault(); applyMove('left'); } else if(e.key==='ArrowRight'){ e.preventDefault(); applyMove('right'); } else if(e.key==='ArrowUp'){ e.preventDefault(); applyMove('up'); } else if(e.key==='ArrowDown'){ e.preventDefault(); applyMove('down'); } });
-let sx=0, sy=0; boardEl.addEventListener('touchstart', e=>{ const t=e.touches[0]; sx=t.clientX; sy=t.clientY; }); boardEl.addEventListener('touchend', e=>{ const t=e.changedTouches[0]; const dx=t.clientX-sx; const dy=t.clientY-sy; if(Math.abs(dx)>Math.abs(dy)){ if(dx>30) applyMove('right'); else if(dx<-30) applyMove('left'); } else { if(dy>30) applyMove('down'); else if(dy<-30) applyMove('up'); } });
+
+// Enhanced touch controls for mobile
+let touchStartX = 0, touchStartY = 0, touchEndX = 0, touchEndY = 0;
+const minSwipeDistance = 30;
+
+// Prevent scrolling and zooming on the game board
+boardEl.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
+}, { passive: false });
+
+boardEl.addEventListener('touchmove', e => {
+  e.preventDefault(); // Prevent scrolling
+}, { passive: false });
+
+boardEl.addEventListener('touchend', e => {
+  e.preventDefault();
+  if (!grid) return;
+  
+  const touch = e.changedTouches[0];
+  touchEndX = touch.clientX;
+  touchEndY = touch.clientY;
+  
+  const deltaX = touchEndX - touchStartX;
+  const deltaY = touchEndY - touchStartY;
+  const absDeltaX = Math.abs(deltaX);
+  const absDeltaY = Math.abs(deltaY);
+  
+  // Only process swipe if it's long enough
+  if (Math.max(absDeltaX, absDeltaY) < minSwipeDistance) return;
+  
+  // Determine swipe direction
+  if (absDeltaX > absDeltaY) {
+    // Horizontal swipe
+    if (deltaX > 0) {
+      applyMove('right');
+    } else {
+      applyMove('left');
+    }
+  } else {
+    // Vertical swipe
+    if (deltaY > 0) {
+      applyMove('down');
+    } else {
+      applyMove('up');
+    }
+  }
+}, { passive: false });
+
+// Prevent default touch behaviors on the entire game area
+document.addEventListener('touchstart', e => {
+  if (e.target.closest('.board-wrap') || e.target.closest('.player-form-overlay')) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
+// Add viewport meta tag programmatically for better mobile experience
+if (!document.querySelector('meta[name="viewport"]')) {
+  const viewport = document.createElement('meta');
+  viewport.name = 'viewport';
+  viewport.content = 'width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0';
+  document.head.appendChild(viewport);
+}
 
 // lifecycle
 function startNewGame(){ grid=makeEmptyGrid(); setScore(0); renderSlots(); addRandomTile(); addRandomTile(); render(); }
