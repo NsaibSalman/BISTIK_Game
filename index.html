@@ -183,7 +183,7 @@
     <!-- Player Registration Form -->
     <div id="player-form" class="player-form-overlay" style="display:none;">
       <div class="player-form-content">
-        <h2>Player Registration</h2>
+        <h2>Fill Your Identity First!</h2>
         <div class="form-group">
           <label>Full Name:</label>
           <input type="text" id="player-name" required autocomplete="name" />
@@ -466,6 +466,8 @@ document.addEventListener('keydown', e=>{ if(!grid) return; if(e.key==='ArrowLef
 
 // Enhanced touch controls for mobile
 let touchStartX = 0, touchStartY = 0, touchEndX = 0, touchEndY = 0;
+let mouseStartX = 0, mouseStartY = 0, mouseEndX = 0, mouseEndY = 0;
+let isMouseDown = false;
 const minSwipeDistance = 30;
 
 // Prevent scrolling and zooming on the game board
@@ -513,6 +515,68 @@ boardEl.addEventListener('touchend', e => {
     }
   }
 }, { passive: false });
+
+// Mouse swipe controls for desktop
+boardEl.addEventListener('mousedown', e => {
+  if (!grid) return;
+  e.preventDefault();
+  isMouseDown = true;
+  mouseStartX = e.clientX;
+  mouseStartY = e.clientY;
+  boardEl.style.cursor = 'grabbing';
+});
+
+boardEl.addEventListener('mousemove', e => {
+  if (!isMouseDown) return;
+  e.preventDefault();
+});
+
+boardEl.addEventListener('mouseup', e => {
+  if (!isMouseDown || !grid) return;
+  e.preventDefault();
+  
+  isMouseDown = false;
+  boardEl.style.cursor = 'grab';
+  
+  mouseEndX = e.clientX;
+  mouseEndY = e.clientY;
+  
+  const deltaX = mouseEndX - mouseStartX;
+  const deltaY = mouseEndY - mouseStartY;
+  const absDeltaX = Math.abs(deltaX);
+  const absDeltaY = Math.abs(deltaY);
+  
+  // Only process swipe if it's long enough
+  if (Math.max(absDeltaX, absDeltaY) < minSwipeDistance) return;
+  
+  // Determine swipe direction
+  if (absDeltaX > absDeltaY) {
+    // Horizontal swipe
+    if (deltaX > 0) {
+      applyMove('right');
+    } else {
+      applyMove('left');
+    }
+  } else {
+    // Vertical swipe
+    if (deltaY > 0) {
+      applyMove('down');
+    } else {
+      applyMove('up');
+    }
+  }
+});
+
+// Handle mouse leave to reset state
+boardEl.addEventListener('mouseleave', e => {
+  if (isMouseDown) {
+    isMouseDown = false;
+    boardEl.style.cursor = 'grab';
+  }
+});
+
+// Set initial cursor style
+boardEl.style.cursor = 'grab';
 
 // Prevent default touch behaviors on the entire game area
 document.addEventListener('touchstart', e => {
