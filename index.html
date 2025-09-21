@@ -127,9 +127,9 @@
       .form-group{margin-bottom:12px}
       .form-group label{font-size:14px; margin-bottom:4px}
       .form-group input{font-size:16px; padding:10px}
-      .form-buttons{margin-top:15px; gap:8px; flex-direction:column}
-      .btn-secondary{padding:10px 16px; font-size:12px; min-width:auto; flex:none}
-      .btn{margin-bottom:8px}
+      .form-buttons{margin-top:15px; gap:8px; flex-direction:row}
+      .btn-secondary{padding:10px 16px; font-size:12px; min-width:auto; flex:1}
+      .btn{flex:2; margin-bottom:0}
       
       footer{font-size:10px; margin-top:15px}
       
@@ -195,7 +195,6 @@
         <div class="form-buttons">
           <button id="start-game" class="btn">Start Game</button>
           <button id="cancel-form" class="btn-secondary">Cancel</button>
-          <button id="skip-registration" class="btn-secondary">Play Without Registration</button>
         </div>
       </div>
     </div>
@@ -232,7 +231,6 @@ const playerNameEl = document.getElementById('player-name');
 const playerYearEl = document.getElementById('player-year');
 const startGameBtn = document.getElementById('start-game');
 const cancelFormBtn = document.getElementById('cancel-form');
-const skipRegistrationBtn = document.getElementById('skip-registration');
 
 // Formspree endpoint
 const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xeorjqqe';
@@ -406,24 +404,14 @@ function showPlayerForm() {
   playerFormEl.style.display = 'flex';
   playerNameEl.value = '';
   playerYearEl.value = '';
-  playerNameEl.focus();
   
-  // Add click outside to close (mobile friendly)
-  setTimeout(() => {
-    playerFormEl.addEventListener('click', handleFormOutsideClick);
-  }, 100);
-}
-
-function handleFormOutsideClick(e) {
-  if (e.target === playerFormEl) {
-    // Clicked outside the form content
-    skipRegistration();
-  }
+  // Don't auto-focus to avoid keyboard issues on mobile
+  // Let user tap when ready
+  checkFormCompletion(); // Initialize button state
 }
 
 function hidePlayerForm() {
   playerFormEl.style.display = 'none';
-  playerFormEl.removeEventListener('click', handleFormOutsideClick);
 }
 
 function validateAndStartGame() {
@@ -438,13 +426,6 @@ function validateAndStartGame() {
   
   playerName = name;
   playerYear = year;
-  hidePlayerForm();
-  startNewGame();
-}
-
-function skipRegistration() {
-  playerName = '';
-  playerYear = '';
   hidePlayerForm();
   startNewGame();
 }
@@ -548,24 +529,16 @@ function startNewGame(){ grid=makeEmptyGrid(); setScore(0); renderSlots(); addRa
 newBtn.addEventListener('click', ()=> showPlayerForm());
 startGameBtn.addEventListener('click', validateAndStartGame);
 cancelFormBtn.addEventListener('click', hidePlayerForm);
-skipRegistrationBtn.addEventListener('click', skipRegistration);
 
-// Enhanced form input handling - no longer requires Enter key
+// Real-time form validation - no Enter key required
 playerNameEl.addEventListener('input', checkFormCompletion);
 playerYearEl.addEventListener('input', checkFormCompletion);
 
-// Optional: Still allow Enter key for convenience, but not required
-playerNameEl.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    playerYearEl.focus();
-  }
-});
-
-playerYearEl.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    validateAndStartGame();
+// Make the form more touch-friendly - remove Enter key dependencies
+playerNameEl.addEventListener('blur', () => {
+  // When user finishes with name field, enable year field
+  if (playerNameEl.value.trim()) {
+    playerYearEl.removeAttribute('disabled');
   }
 });
 
@@ -577,9 +550,11 @@ function checkFormCompletion() {
   if (name && year) {
     startGameBtn.style.opacity = '1';
     startGameBtn.style.background = 'var(--accent-dark)';
+    startGameBtn.disabled = false;
   } else {
     startGameBtn.style.opacity = '0.7';
     startGameBtn.style.background = 'rgba(17,73,34,0.7)';
+    startGameBtn.disabled = true;
   }
 }
 
