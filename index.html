@@ -82,8 +82,8 @@
     .form-group label{display:block;margin-bottom:5px;color:var(--accent-dark);font-weight:500}
     .form-group input{width:100%;padding:10px;border:2px solid rgba(17,73,34,0.2);border-radius:6px;font-size:16px;color:var(--accent-dark)}
     .form-group input:focus{outline:none;border-color:var(--accent-dark)}
-    .form-buttons{display:flex;gap:10px;margin-top:20px}
-    .btn-secondary{background:rgba(17,73,34,0.1);color:var(--accent-dark);padding:12px 20px;border-radius:6px;border:2px solid rgba(17,73,34,0.2);font-weight:400;cursor:pointer;flex:1}
+    .form-buttons{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+    .btn-secondary{background:rgba(17,73,34,0.1);color:var(--accent-dark);padding:12px 20px;border-radius:6px;border:2px solid rgba(17,73,34,0.2);font-weight:400;cursor:pointer;flex:1;min-width:120px;text-align:center}
     .btn-secondary:hover{background:rgba(17,73,34,0.2)}
 
     /* overlay game over */
@@ -127,8 +127,9 @@
       .form-group{margin-bottom:12px}
       .form-group label{font-size:14px; margin-bottom:4px}
       .form-group input{font-size:16px; padding:10px}
-      .form-buttons{margin-top:15px; gap:8px}
-      .btn-secondary{padding:10px 16px; font-size:12px}
+      .form-buttons{margin-top:15px; gap:8px; flex-direction:column}
+      .btn-secondary{padding:10px 16px; font-size:12px; min-width:auto; flex:none}
+      .btn{margin-bottom:8px}
       
       footer{font-size:10px; margin-top:15px}
       
@@ -185,15 +186,16 @@
         <h2>Player Registration</h2>
         <div class="form-group">
           <label>Full Name:</label>
-          <input type="text" id="player-name" required />
+          <input type="text" id="player-name" required autocomplete="name" />
         </div>
         <div class="form-group">
           <label>Year (Angkatan):</label>
-          <input type="text" id="player-year" required />
+          <input type="text" id="player-year" required autocomplete="off" />
         </div>
         <div class="form-buttons">
           <button id="start-game" class="btn">Start Game</button>
           <button id="cancel-form" class="btn-secondary">Cancel</button>
+          <button id="skip-registration" class="btn-secondary">Play Without Registration</button>
         </div>
       </div>
     </div>
@@ -209,9 +211,18 @@
 <script>
 // Game logic — strict Greek sequence mapping (2->α, 4->β, 8->γ, ...)
 const SIZE = 4;
-const TILE = 96; const GAP = 18; const ANIM_MS = 300; const POP_MS = 220;
+const ANIM_MS = 300; const POP_MS = 220;
 let grid = null, score = 0, high = 0, lastAdded = null;
 const boardEl = document.getElementById('board'); const scoreEl = document.getElementById('score'); const highEl = document.getElementById('high'); const newBtn = document.getElementById('newBtn');
+
+// Get current tile size and gap from CSS variables
+function getTileSize() {
+  return parseInt(getComputedStyle(document.documentElement).getPropertyValue('--tile-size'));
+}
+
+function getGap() {
+  return parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gap'));
+}
 
 // Player registration variables
 let playerName = '';
@@ -221,6 +232,7 @@ const playerNameEl = document.getElementById('player-name');
 const playerYearEl = document.getElementById('player-year');
 const startGameBtn = document.getElementById('start-game');
 const cancelFormBtn = document.getElementById('cancel-form');
+const skipRegistrationBtn = document.getElementById('skip-registration');
 
 // Formspree endpoint
 const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xeorjqqe';
@@ -232,15 +244,39 @@ function valueToIndex(val){ let idx=0; while(val>1){ val/=2; idx++; } return idx
 function letterFor(value){ if(value===0) return ''; return GREEK[valueToIndex(value)] || String(value); }
 function clsFor(value){ if(value===0) return ''; const idx = valueToIndex(value); const map = ['','t-a','t-b','t-g','t-d','t-e','t-z','t-h','t-i','t-j','t-k','t-l','t-m','t-n']; return map[idx] || 't-n'; }
 
-function renderSlots(){ boardEl.innerHTML=''; const total = (TILE * SIZE) + (GAP*(SIZE-1)); boardEl.style.width = total + 'px'; boardEl.style.height = total + 'px';
+function renderSlots(){ 
+  boardEl.innerHTML=''; 
+  const TILE = getTileSize();
+  const GAP = getGap();
+  const total = (TILE * SIZE) + (GAP*(SIZE-1)); 
+  boardEl.style.width = total + 'px'; 
+  boardEl.style.height = total + 'px';
   for(let r=0;r<SIZE;r++){
     for(let c=0;c<SIZE;c++){
-      const s = document.createElement('div'); s.className='slot'; s.style.left = (c*(TILE+GAP)) + 'px'; s.style.top = (r*(TILE+GAP)) + 'px'; boardEl.appendChild(s);
+      const s = document.createElement('div'); 
+      s.className='slot'; 
+      s.style.left = (c*(TILE+GAP)) + 'px'; 
+      s.style.top = (r*(TILE+GAP)) + 'px'; 
+      boardEl.appendChild(s);
     }
   }
 }
 
-function createTileEl(value, r, c){ const el = document.createElement('div'); el.className = 'tile '+clsFor(value); el.style.left = (c*(TILE+GAP)) + 'px'; el.style.top = (r*(TILE+GAP)) + 'px'; el.dataset.r=r; el.dataset.c=c; const letter = document.createElement('div'); letter.className='letter'; letter.textContent = letterFor(value); el.appendChild(letter); return el; }
+function createTileEl(value, r, c){ 
+  const TILE = getTileSize();
+  const GAP = getGap();
+  const el = document.createElement('div'); 
+  el.className = 'tile '+clsFor(value); 
+  el.style.left = (c*(TILE+GAP)) + 'px'; 
+  el.style.top = (r*(TILE+GAP)) + 'px'; 
+  el.dataset.r=r; 
+  el.dataset.c=c; 
+  const letter = document.createElement('div'); 
+  letter.className='letter'; 
+  letter.textContent = letterFor(value); 
+  el.appendChild(letter); 
+  return el; 
+}
 
 function render(){ Array.from(boardEl.querySelectorAll('.tile')).forEach(x=>x.remove()); for(let r=0;r<SIZE;r++){ for(let c=0;c<SIZE;c++){ const v = grid[r][c]; if(v!==0){ const el = createTileEl(v,r,c); if(lastAdded && lastAdded.r===r && lastAdded.c===c){ el.classList.add('pop'); setTimeout(()=>el.classList.remove('pop'), POP_MS+20); } boardEl.appendChild(el); } } } }
 
@@ -250,7 +286,30 @@ function simulateMove(g, dir){ const map={left:0,up:3,right:2,down:1}; const tim
 
 function buildMovements(oldGrid,newGrid,dir){ const movs=[]; if(dir==='left' || dir==='right'){ for(let r=0;r<SIZE;r++){ const olds=[]; for(let c=0;c<SIZE;c++) if(oldGrid[r][c]!==0) olds.push({val:oldGrid[r][c],c}); const news=[]; for(let c=0;c<SIZE;c++) if(newGrid[r][c]!==0) news.push({val:newGrid[r][c],c}); for(let i=0;i<olds.length;i++){ const from=[r,olds[i].c]; const to = news[i] ? [r,news[i].c] : from; const merged = (news[i] && news[i].val !== olds[i].val); movs.push({from,to,value:olds[i].val,merged}); } } } else { for(let c=0;c<SIZE;c++){ const olds=[]; for(let r=0;r<SIZE;r++) if(oldGrid[r][c]!==0) olds.push({val:oldGrid[r][c],r}); const news=[]; for(let r=0;r<SIZE;r++) if(newGrid[r][c]!==0) news.push({val:newGrid[r][c],r}); for(let i=0;i<olds.length;i++){ const from=[olds[i].r,c]; const to = news[i] ? [news[i].r,c] : from; const merged = (news[i] && news[i].val !== olds[i].val); movs.push({from,to,value:olds[i].val,merged}); } } } return movs; }
 
-function animateMove(movements, callback){ if(!movements || movements.length===0){ if(callback) callback(); return; } const tempEls=[]; movements.forEach(m=>{ const el = createTileEl(m.value, m.from[0], m.from[1]); el.style.zIndex=20; boardEl.appendChild(el); const dx=(m.to[1]-m.from[1])*(TILE+GAP); const dy=(m.to[0]-m.from[0])*(TILE+GAP); requestAnimationFrame(()=>{ el.style.transform = `translate(${dx}px, ${dy}px)`; }); tempEls.push({el,merged:m.merged,to:m.to}); }); setTimeout(()=>{ tempEls.forEach(t=>t.el.remove()); if(callback) callback(); }, ANIM_MS+40); }
+function animateMove(movements, callback){ 
+  if(!movements || movements.length===0){ 
+    if(callback) callback(); 
+    return; 
+  } 
+  const TILE = getTileSize();
+  const GAP = getGap();
+  const tempEls=[]; 
+  movements.forEach(m=>{ 
+    const el = createTileEl(m.value, m.from[0], m.from[1]); 
+    el.style.zIndex=20; 
+    boardEl.appendChild(el); 
+    const dx=(m.to[1]-m.from[1])*(TILE+GAP); 
+    const dy=(m.to[0]-m.from[0])*(TILE+GAP); 
+    requestAnimationFrame(()=>{ 
+      el.style.transform = `translate(${dx}px, ${dy}px)`; 
+    }); 
+    tempEls.push({el,merged:m.merged,to:m.to}); 
+  }); 
+  setTimeout(()=>{ 
+    tempEls.forEach(t=>t.el.remove()); 
+    if(callback) callback(); 
+  }, ANIM_MS+40); 
+}
 
 function doPopOnMerged(oldG,newG){ for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){ const ov=oldG[r][c]||0, nv=newG[r][c]||0; if(nv!==0 && nv!==ov){ const el = Array.from(boardEl.querySelectorAll('.tile')).find(x=>Number(x.dataset.r)===r && Number(x.dataset.c)===c && x.querySelector('.letter').textContent===letterFor(nv)); if(el){ el.style.transform='scale(.9)'; setTimeout(()=>el.style.transform='scale(1)', POP_MS+20); } } } }
 
@@ -348,10 +407,23 @@ function showPlayerForm() {
   playerNameEl.value = '';
   playerYearEl.value = '';
   playerNameEl.focus();
+  
+  // Add click outside to close (mobile friendly)
+  setTimeout(() => {
+    playerFormEl.addEventListener('click', handleFormOutsideClick);
+  }, 100);
+}
+
+function handleFormOutsideClick(e) {
+  if (e.target === playerFormEl) {
+    // Clicked outside the form content
+    skipRegistration();
+  }
 }
 
 function hidePlayerForm() {
   playerFormEl.style.display = 'none';
+  playerFormEl.removeEventListener('click', handleFormOutsideClick);
 }
 
 function validateAndStartGame() {
@@ -359,7 +431,8 @@ function validateAndStartGame() {
   const year = playerYearEl.value.trim();
   
   if (!name || !year) {
-    alert('Please fill in both Full Name and Year fields');
+    // Instead of alert, show a gentle warning
+    showFormWarning('Please fill in both Full Name and Year fields');
     return;
   }
   
@@ -367,6 +440,37 @@ function validateAndStartGame() {
   playerYear = year;
   hidePlayerForm();
   startNewGame();
+}
+
+function skipRegistration() {
+  playerName = '';
+  playerYear = '';
+  hidePlayerForm();
+  startNewGame();
+}
+
+function showFormWarning(message) {
+  // Create a temporary warning message
+  const existing = document.querySelector('.form-warning');
+  if (existing) existing.remove();
+  
+  const warning = document.createElement('div');
+  warning.className = 'form-warning';
+  warning.textContent = message;
+  warning.style.cssText = `
+    color: #d32f2f;
+    font-size: 12px;
+    margin-top: 8px;
+    text-align: center;
+  `;
+  
+  const formContent = document.querySelector('.player-form-content');
+  formContent.appendChild(warning);
+  
+  // Remove warning after 3 seconds
+  setTimeout(() => {
+    if (warning.parentNode) warning.remove();
+  }, 3000);
 }
 
 // input
@@ -444,19 +548,40 @@ function startNewGame(){ grid=makeEmptyGrid(); setScore(0); renderSlots(); addRa
 newBtn.addEventListener('click', ()=> showPlayerForm());
 startGameBtn.addEventListener('click', validateAndStartGame);
 cancelFormBtn.addEventListener('click', hidePlayerForm);
+skipRegistrationBtn.addEventListener('click', skipRegistration);
 
-// Handle Enter key in form inputs
+// Enhanced form input handling - no longer requires Enter key
+playerNameEl.addEventListener('input', checkFormCompletion);
+playerYearEl.addEventListener('input', checkFormCompletion);
+
+// Optional: Still allow Enter key for convenience, but not required
 playerNameEl.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
+    e.preventDefault();
     playerYearEl.focus();
   }
 });
 
 playerYearEl.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
+    e.preventDefault();
     validateAndStartGame();
   }
 });
+
+// Auto-enable start button when both fields have content
+function checkFormCompletion() {
+  const name = playerNameEl.value.trim();
+  const year = playerYearEl.value.trim();
+  
+  if (name && year) {
+    startGameBtn.style.opacity = '1';
+    startGameBtn.style.background = 'var(--accent-dark)';
+  } else {
+    startGameBtn.style.opacity = '0.7';
+    startGameBtn.style.background = 'rgba(17,73,34,0.7)';
+  }
+}
 
 window.addEventListener('load', ()=>{ 
   high = parseInt(localStorage.getItem('greek-high')||'0',10) || 0; 
