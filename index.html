@@ -87,19 +87,32 @@
     .btn-secondary:hover{background:rgba(17,73,34,0.2)}
 
     /* overlay game over */
-    .overlay{position:absolute;inset:0;background:rgba(243,193,10,0.96);display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:var(--board-radius);}
+  .overlay{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(243,193,10,0.96);display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:var(--board-radius);padding:24px;z-index:1001;max-width:90vw;min-width:260px;box-shadow:0 10px 30px rgba(0,0,0,0.2)}
     .overlay h2{font-size:32px;margin:0;color:var(--accent-dark)}
     .overlay p{color:var(--accent-dark);margin:8px 0}
 
     /* win overlay - different styling for victory */
-    .win-overlay{position:absolute;inset:0;background:rgba(17,73,34,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:var(--board-radius);}
+  .win-overlay{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(17,73,34,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:var(--board-radius);padding:24px;z-index:1001;max-width:90vw;min-width:260px;box-shadow:0 10px 30px rgba(0,0,0,0.3)}
     .win-overlay h2{font-size:32px;margin:0;color:var(--score-bg)}
     .win-overlay p{color:var(--score-bg);margin:8px 0;text-align:center}
+
+  /* Prevent overlay buttons from inheriting mobile flex growth */
+  .overlay .btn, .win-overlay .btn{flex:0;align-self:center;max-width:240px;width:auto}
 
     @media (max-width:840px){ 
       .title{font-size:48px} 
       .subtitle{font-size:10px}
-      .wrap{padding:8px; max-width:100%; margin:15px auto} 
+      
+      /* Center content vertically and horizontally on mobile */
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 10px 0;
+      }
+      
+      .wrap{padding:8px; max-width:100%; margin:0 auto} 
       .header{flex-direction:row; justify-content:space-between; align-items:center; margin-bottom:15px}
       .scores{margin-top:0; gap:8px}
       .score-box{padding:6px 10px}
@@ -142,7 +155,17 @@
     /* Extra small screens (phones in portrait) */
     @media (max-width:480px) {
       .title{font-size:40px}
-      .wrap{margin:10px auto; padding:6px}
+      
+      /* Maintain vertical and horizontal centering */
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 5px 0;
+      }
+      
+      .wrap{margin:0 auto; padding:6px}
       .header{margin-bottom:12px}
       .scores{gap:6px}
       .score-box{padding:5px 8px}
@@ -212,6 +235,8 @@
 const SIZE = 4;
 const ANIM_MS = 300; const POP_MS = 220;
 let grid = null, score = 0, high = 0, lastAdded = null;
+// Busy flag prevents queuing new moves while an animation is running
+let busy = false;
 const boardEl = document.getElementById('board'); const scoreEl = document.getElementById('score'); const highEl = document.getElementById('high'); const newBtn = document.getElementById('newBtn');
 
 // Get current tile size and gap from CSS variables
@@ -289,6 +314,8 @@ function animateMove(movements, callback){
     if(callback) callback(); 
     return; 
   } 
+  // mark busy while animating
+  busy = true;
   const TILE = getTileSize();
   const GAP = getGap();
   const tempEls=[]; 
@@ -306,12 +333,30 @@ function animateMove(movements, callback){
   setTimeout(()=>{ 
     tempEls.forEach(t=>t.el.remove()); 
     if(callback) callback(); 
+    // clear busy after animation completes
+    busy = false;
   }, ANIM_MS+40); 
 }
 
 function doPopOnMerged(oldG,newG){ for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){ const ov=oldG[r][c]||0, nv=newG[r][c]||0; if(nv!==0 && nv!==ov){ const el = Array.from(boardEl.querySelectorAll('.tile')).find(x=>Number(x.dataset.r)===r && Number(x.dataset.c)===c && x.querySelector('.letter').textContent===letterFor(nv)); if(el){ el.style.transform='scale(.9)'; setTimeout(()=>el.style.transform='scale(1)', POP_MS+20); } } } }
 
-function applyMove(dir){ if(!grid) return; const old = copyGrid(grid); const res = simulateMove(old,dir); if(!res.moved) return; const movements = buildMovements(old,res.grid,dir); animateMove(movements, ()=>{ grid = res.grid; setScore(score + res.gained); addRandomTile(); render(); doPopOnMerged(old,grid); if(hasWon(grid)) showWinOverlay(); else if(!canMove(grid)) showGameOverOverlay(); }); }
+function applyMove(dir){ 
+  if(!grid) return; 
+  if(busy) return; // ignore moves while animating
+  const old = copyGrid(grid); 
+  const res = simulateMove(old,dir); 
+  if(!res.moved) return; 
+  const movements = buildMovements(old,res.grid,dir); 
+  animateMove(movements, ()=>{ 
+    grid = res.grid; 
+    setScore(score + res.gained); 
+    addRandomTile(); 
+    render(); 
+    doPopOnMerged(old,grid); 
+    if(hasWon(grid)) showWinOverlay(); 
+    else if(!canMove(grid)) showGameOverOverlay(); 
+  }); 
+}
 
 function randTile(){ const r=Math.random(); if(r<0.70) return 2; if(r<0.95) return 4; return 8; }
 function addRandomTile(){ const empties=[]; for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) if(grid[r][c]===0) empties.push([r,c]); if(empties.length===0) return false; const [r,c] = empties[Math.floor(Math.random()*empties.length)]; grid[r][c]=randTile(); lastAdded={r,c,ts:performance.now()}; return true; }
@@ -349,7 +394,7 @@ async function sendPlayerData(playerName, playerYear, finalScore) {
 }
 
 function showGameOverOverlay(){ 
-  if(boardEl.querySelector('.overlay') || boardEl.querySelector('.win-overlay')) return; 
+  if(document.querySelector('.overlay') || document.querySelector('.win-overlay')) return; 
   
   // Send player data to Formspree if player is registered
   if(playerName && playerYear) {
@@ -373,7 +418,7 @@ function showGameOverOverlay(){
 }
 
 function showWinOverlay(){ 
-  if(boardEl.querySelector('.overlay') || boardEl.querySelector('.win-overlay')) return; 
+  if(document.querySelector('.overlay') || document.querySelector('.win-overlay')) return; 
   
   // Send player data to Formspree if player is registered
   if(playerName && playerYear) {
@@ -485,6 +530,7 @@ boardEl.addEventListener('touchmove', e => {
 boardEl.addEventListener('touchend', e => {
   e.preventDefault();
   if (!grid) return;
+  if (busy) return; // ignore touch input while animating
   
   const touch = e.changedTouches[0];
   touchEndX = touch.clientX;
@@ -534,6 +580,7 @@ boardEl.addEventListener('mousemove', e => {
 boardEl.addEventListener('mouseup', e => {
   if (!isMouseDown || !grid) return;
   e.preventDefault();
+  if (busy) return; // ignore mouse input while animating
   
   isMouseDown = false;
   boardEl.style.cursor = 'grab';
